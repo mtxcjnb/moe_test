@@ -1,0 +1,81 @@
+name: PR MoE GPU Test and Auto-Merge
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  moe-gpu-test:
+    name: Run MoE CUDA functional tests
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: [self-hosted, Linux, GPU]
+
+    steps:
+      - name: Check out PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify Python CUDA dependencies
+        shell: bash
+        run: |
+          python - <<'PY'
+          import importlib.util
+          import sys
+
+          required_modules = ("torch", "tilelang", "tvm_ffi")
+          missing = [module for module in required_modules if importlib.util.find_spec(module) is None]
+          if missing:
+              print(f"Missing required Python modules: {', '.join(missing)}", file=sys.stderr)
+              sys.exit(1)
+
+          import torch
+
+          if not torch.cuda.is_available():
+              print("CUDA is not available to torch on this runner.", file=sys.stderr)
+              sys.exit(1)
+
+          print(f"Python: {sys.version.split()[0]}")
+          print(f"Torch: {torch.__version__}")
+          print(f"CUDA device: {torch.cuda.get_device_name(0)}")
+          PY
+
+      - name: Run MoE harness
+        shell: bash
+        run: bash run.sh
+
+  auto-merge:
+    name: Auto-merge same-repository PR
+    needs: moe-gpu-test
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Merge PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        shell: bash
+        run: |
+          for method in squash merge rebase; do
+              if gh pr merge "$PR_URL" "--$method" --auto --delete-branch; then
+                  exit 0
+              fi
+
+              if gh pr merge "$PR_URL" "--$method" --delete-branch; then
+                  exit 0
+              fi
+          done
+
+          echo "Unable to merge PR with squash, merge, or rebase methods." >&2
+          exit 1
