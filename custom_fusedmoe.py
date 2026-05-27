@@ -18,7 +18,7 @@ def moe_forward_tilelang_routed(
     block_dhidden=128,
     block_dexpert=128,
     threads=256,
-    num_stages=1,
+    num_stages=3,
 ):
     scale = 1.44269504  # log2(e)
     dtype = T.float16
@@ -154,7 +154,7 @@ class RoutedMoEKernel:
         block_dhidden: int = 128,
         block_dexpert: int = 128,
         threads: int = 256,
-        num_stages: int = 1,
+        num_stages: int = 3,
         backend: str = "tilelang",
     ):
         self.d_hidden = d_hidden
