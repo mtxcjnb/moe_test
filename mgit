@@ -37,7 +37,7 @@ ensure_repo() {
     fi
 }
 
-export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=${KNOWN_HOSTS}}"
+export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -F /dev/null -o StrictHostKeyChecking=no -o UserKnownHostsFile=${KNOWN_HOSTS}}"
 
 ensure_repo
 exec git --git-dir="${GIT_DIR}" --work-tree="${ROOT}" "$@"
