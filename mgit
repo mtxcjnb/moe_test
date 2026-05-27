@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+GIT_DIR="${ROOT}/.moe-git"
+REMOTE_URL="${MOE_GIT_REMOTE:-git@github.com:mtxcjnb/moe_test.git}"
+KNOWN_HOSTS="${MOE_GIT_KNOWN_HOSTS:-/tmp/github_known_hosts}"
+
+run_git() {
+    git --git-dir="${GIT_DIR}" --work-tree="${ROOT}" "$@"
+}
+
+ensure_repo() {
+    if [ ! -f "${GIT_DIR}/HEAD" ]; then
+        mkdir -p "${GIT_DIR}"
+        git --git-dir="${GIT_DIR}" --work-tree="${ROOT}" init -b main >/dev/null
+    fi
+
+    if ! run_git remote get-url origin >/dev/null 2>&1; then
+        run_git remote add origin "${REMOTE_URL}"
+    fi
+
+    if ! run_git config user.name >/dev/null 2>&1; then
+        run_git config user.name "Codex"
+    fi
+
+    if ! run_git config user.email >/dev/null 2>&1; then
+        run_git config user.email "codex@openai.com"
+    fi
+
+    if ! run_git rev-parse --verify HEAD >/dev/null 2>&1; then
+        if run_git fetch origin main >/dev/null 2>&1; then
+            run_git symbolic-ref HEAD refs/heads/main
+            run_git update-ref refs/heads/main FETCH_HEAD
+            run_git reset --mixed HEAD >/dev/null
+        fi
+    fi
+}
+
+export GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=${KNOWN_HOSTS}}"
+
+ensure_repo
+exec git --git-dir="${GIT_DIR}" --work-tree="${ROOT}" "$@"

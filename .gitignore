@@ -17,6 +17,7 @@ ENV/
 
 .agents/
 .codex/
+.moe-git/
 
 build/
 dist/
