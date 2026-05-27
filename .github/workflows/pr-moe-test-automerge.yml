@@ -1,6 +1,9 @@
 name: PR MoE GPU Test and Auto-Merge
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
@@ -17,14 +20,14 @@ permissions:
 jobs:
   moe-gpu-test:
     name: Run MoE CUDA functional tests
-    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft)
     runs-on: [self-hosted, Linux, GPU]
 
     steps:
       - name: Check out PR head
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
 
       - name: Verify Python CUDA dependencies
         shell: bash
@@ -57,7 +60,7 @@ jobs:
   auto-merge:
     name: Auto-merge same-repository PR
     needs: moe-gpu-test
-    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
     runs-on: ubuntu-latest
 
     steps:
