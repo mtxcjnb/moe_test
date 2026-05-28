@@ -22,6 +22,9 @@ def moe_forward_tilelang_routed(
 ):
     scale = 1.44269504  # log2(e)
     dtype = T.float16
+    # MACA rejects kernels above 64 KiB dynamic shared memory. With the fused
+    # three-tile schedule, block_dexpert=64 uses 48 KiB for the default tiles.
+    block_dexpert = min(block_dexpert, 64)
 
     # Parameters
     dhidden = d_hidden
@@ -149,7 +152,7 @@ class RoutedMoEKernel:
         self.group_count = group_count
         self.block_token = block_token
         self.block_dhidden = block_dhidden
-        self.block_dexpert = block_dexpert
+        self.block_dexpert = min(block_dexpert, 64)
         self.threads = threads
         self.num_stages = num_stages
         self.backend = backend
@@ -162,7 +165,7 @@ class RoutedMoEKernel:
             group_count=group_count,
             block_token=block_token,
             block_dhidden=block_dhidden,
-            block_dexpert=block_dexpert,
+            block_dexpert=self.block_dexpert,
             threads=threads,
             num_stages=num_stages,
         )
